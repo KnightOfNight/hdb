@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec /var/root/bin/hdb | tee -a /var/root/var/log/hdb

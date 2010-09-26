@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+
+use lib "/usr/local/hdb/lib";
+
+
+use strict;
+use warnings;
+use Rsync;
+
+
+my $backup = new Rsync ( { "destdir" => "/mnt/backups", "desthost" => "zaphod", "logfile" => "logs/Eddie" } );
+
+
+$backup->setoption ("rsync_opts", "--exclude /dev/fd --exclude /. --exclude /..", 1);
+
+
+my @sources = (		"/.[a-zA-Z0-9]*",
+					"/Applications",
+					"/Library",
+					"/System",
+					"/Users",
+					"/bin",
+					"/cores",
+					"/dev",
+					"/etc",
+					"/home",
+					"/mach_kernel",
+					"/net",
+					"/private",
+					"/sbin",
+					"/tmp",
+					"/usr",
+					"/var"
+);
+
+
+map { 
+	$backup->go ( [$_] , "root\@zaphod:/mnt/backups/hosts/Eddie-10.6/Internal/" );
+} @sources;
+
+
+
+$backup->cleanup ();

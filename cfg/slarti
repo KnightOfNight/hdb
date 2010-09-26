@@ -1,0 +1,13 @@
+{
+	"jobs" : [
+		{
+			"rsync options" : "" ,
+
+			"sources" : ["/bin","/boot","/dev","/etc","/home","/lib","/root","/sbin","/selinux","/tmp","/usr","/var"] ,
+
+			"destination" : "root@max:/Volumes/Backups/Slarti" ,
+
+			"log file" : "/var/log/hdb"
+		}
+	]
+}
