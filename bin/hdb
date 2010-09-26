@@ -6,15 +6,19 @@ use lib "/usr/local/hdb/lib";
 
 use strict;
 use warnings;
+use Getopt::Long;
 use Rsync;
 use JSON;
 use Env qw(HOME);
 
 
 my $cfg_file = "";
+my $test = 0;
+my $verbose = 0;
+my $debug = 0;
 my $help = 0;
 
-my $getopt = GetOptions( "cfg=s" => \$cfg_file, "help" => \$help );
+my $getopt = GetOptions( "cfg=s" => \$cfg_file, "test" => \$test, "verbose" => \$verbose, "debug" => \$debug, "help" => \$help );
 
 if ( ! $getopt ) {
 	die("Unable to parse command line options\n");
@@ -27,6 +31,8 @@ if ( $help ) {
 hdb [--cfg=<configuration file>]
 
 --cfg=<config file>    Specify a config file.  Default is '~/.hdbrc'.
+--test                 Do a dry run of the rsync transfer.  Nothing will be changed.
+--debug                Turn on debugging mode.
 
 EOHELP
 }
@@ -37,53 +43,49 @@ if ( ! $cfg_file ) {
 }
 
 if ( ! -s $cfg_file ) {
-	die ("Config file '$cfg_file' empty or missing\n");
+	die ("No config file specified on command line and \$HOME/.hdbrc not found or empty\n");
 }
 
 
-unless( open($fh, "<", $cfg_file) ) die("Unable to open config file '$cfg_file'\n");
-my @config = <$fh>;
-close ($fh);
-$config = JSON::decode_json( join("", @config) );
+my @config;
+
+if ( open( my $fh, "<", $cfg_file ) ) {
+	@config = <$fh>;
+	close($fh) || die("Unable to close config file '$cfg_file'\n");
+} else {
+	die("Unable to open config file '$cfg_file'\n");
+}
+
+my $config = JSON::decode_json( join("", @config) );
+
+my @jobs = @{$config->{"jobs"}};
+
+my $rsync_errors = 0;
 
 
-@jobs = $config->{"jobs"};
+printf ("\n\n");
 
-exit;
+foreach my $job (@jobs) {
 
+	my @sources = @{$job->{"sources"}};
+	my $destination = $job->{"destination"};
+	my $rsync_opts = $job->{"rsync options"};
 
+	my $rsync = new Rsync( { "destination" => $destination , "rsync_opts" => $rsync_opts , "verbose" => $verbose, "debug" => $debug , "test" => $test } );
 
+	map { 
+		if ( $rsync->go($_) ) {
+			$rsync_errors++;
+		}
 
-my $backup = new Rsync ( { "destdir" => "/mnt/backups", "desthost" => "zaphod", "logfile" => "logs/Eddie" } );
+		printf("\n\n");
+	} @sources;
 
-
-$backup->setoption ("rsync_opts", "--exclude /dev/fd --exclude /. --exclude /..", 1);
-
-
-my @sources = (		"/.[a-zA-Z0-9]*",
-					"/Applications",
-					"/Library",
-					"/System",
-					"/Users",
-					"/bin",
-					"/cores",
-					"/dev",
-					"/etc",
-					"/home",
-					"/mach_kernel",
-					"/net",
-					"/private",
-					"/sbin",
-					"/tmp",
-					"/usr",
-					"/var"
-);
+}
 
 
-map { 
-	$backup->go ( [$_] , "root\@zaphod:/mnt/backups/hosts/Eddie-10.6/Internal/" );
-} @sources;
-
-
-
-$backup->cleanup ();
+if ( $rsync_errors ) {
+	exit(-1);
+} else {
+	exit(0);
+}

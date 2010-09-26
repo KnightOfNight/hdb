@@ -12,109 +12,89 @@ use File::Temp;
 package Rsync;
 
 
-my %OPTIONS = (	"destination"	=> "",
-				"verbose"		=> 0,
-				"debug"			=> 0,
-				"rsync_cmd"		=> "/usr/bin/rsync",
-				"rsync_opts"	=> "-av --numeric-ids --delete-after"
-);
-
-
 sub new {
 	my @args = @_;
-	my $self = {};
-
 	my $class = $args[0];
 	my ($options) = $args[1];
+	my $self = {};
 
-	my $verbose = 0;
-	my $debug = 0;
-	my $cmd;
+
+	if ( $options->{"rsync_cmd"} ) {
+		$self->{"rsync_cmd"} = $options->{"rsync_cmd"};
+	} else {
+		$self->{"rsync_cmd"} = "/usr/bin/rsync";
+	}
+
+	if ( $options->{"rsync_opts"} ) {
+		$self->{"rsync_opts"} = $options->{"rsync_opts"};
+		$self->{"rsync_opts"} .= " --verbose";
+	} else {
+		$self->{"rsync_opts"} = "-av --numeric-ids --delete-after";
+	}
+
+	if ( $options->{"destination"} ) {
+		$self->{"destination"} = $options->{"destination"};
+	} else {
+		die("Rsync::new() destination must be specified\n");
+	}
+
+	if ($options->{"test"}) {
+		$self->{"rsync_opts"} .= " --dry-run";
+		$self->{"test"} = 1;
+	} else {
+		$self->{"test"} = 0;
+	}
 
 	if ($options->{"verbose"}) {
-		$self->{"verbose"} = $verbose;
-		$verbose = 1;
+		$self->{"verbose"} = 1;
+	} else {
+		$self->{"verbose"} = 0;
 	}
 
 	if ($options->{"debug"}) {
-		$self->{"debug"} = $debug;
-		$debug = 1;
-	}
-
-	for my $option (sort (keys (%OPTIONS))) {
-		if (my $value = $options->{$option}) {
-			$self->{$option} = $value;
-			printf ("DEBUG: %s = '%s'\n", $option, $value) if $self->{"debug"};
-		} else {
-			$self->{$option} = $OPTIONS{$option};
-			$options->{$option} = $OPTIONS{$option};
-			printf ("DEBUG: %s = default ('%s')\n", $option, $OPTIONS{$option}) if $self->{"debug"};
-		}
-	}
-
-
-	if ( $options->{"destination"} ) {
-
-		System::my_system("date +%s > /tmp/.hdb_time");
-
-		$cmd = sprintf("scp /tmp/.hdb_time %s/", $options->{"destination"});
-
-		printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
-
-		if (System::my_system ($cmd)) {
-			die("Unable to exec '$cmd'.\n");
-		}
-
+		$self->{"debug"} = 1;
 	} else {
-
-		die ("ERROR: no destination specified\n");
-
+		$self->{"debug"} = 0;
 	}
 
-	bless ($self, $class);
 
-	return ($self);
+	# Tag the remote filesystem.  This verifies SSH and the ability to write to the destination.
+	my $cmd;
+
+	$cmd = "date +%s > /tmp/.hdb_time";
+	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
+
+	if (System::exec($cmd)) {
+		die("Rsync::new() unable to run '$cmd'.\n");
+	}
+
+	$cmd = sprintf("scp -q /tmp/.hdb_time %s/", $self->{"destination"});
+	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
+
+	if (System::exec($cmd)) {
+		die("Rsync::new() unable to run '$cmd'.\n");
+	}
+
+
+	bless($self, $class);
+
+
+	return($self);
 }
 
 
-sub setoption ($$$) {
+sub go ($$) {
 	my $self = $_[0];
+	my $source = $_[1];
 
-	my $option = $_[1];
-	my $value = $_[2];
-	my $add = $_[3];
 
-	if (! grep (/^$option$/, sort (keys (%OPTIONS)))) {
-		printf ("ERROR: Rsync::set_option: invalid option '%s'\n", $option);
-		exit (-1);
+	my $destination = $self->{"destination"};
+
+
+	if ($source =~ / /) {
+		$source = "\"" . $source . "\"";
 	}
 
-	if (! $value) {
-		$value = $OPTIONS{$option};
-	}
-
-	printf ("DEBUG: setting option '%s' to '%s'\n", $option, $value) if $self->{"debug"};
-
-	if ($add) {
-		$self->{$option} = $self->{$option} . " " . $value;
-	} else {
-		$self->{$option} = $value;
-	}
-}
-
-
-sub go ($@$) {
-	my $self = $_[0];
-	my @source = @{$_[1]};
-	my $dest = $_[2];
-
-	for (my $i = 0; $source[$i]; $i++) {
-		if ($source[$i] =~ / /) {
-			$source[$i] = "\"" . $source[$i] . "\"";
-		}
-	}
-
-	my $source = join (" ", sort (@source));
 
 	if (! $self->{"stdout"}) {
 		$self->{"stdout"} = File::Temp::mktemp ("/tmp/rsync.out.XXXX");
@@ -124,58 +104,96 @@ sub go ($@$) {
 	$self->{"stderr"} =~ s/out/err/;
 
 
-	my $cmd = sprintf ("%s %s %s %s > %s 2> %s",
+	my $cmd = sprintf ("%s %s %s %s 2>%s > %s",
 		$self->{"rsync_cmd"}, $self->{"rsync_opts"},
-		$source, $dest, $self->{"stdout"}, $self->{"stderr"});
+		$source, $destination, $self->{"stderr"}, $self->{"stdout"});
+	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
 
+
+	printf ("======================================================================\n");
+	printf ("TEST MODE ON - NOTHING WILL BE MODIFIED IN ANY WAY\n\n") if $self->{"test"};
+
+	printf ("%s  ===>>>  %s\n", $source, $destination);
 	printf ("\n");
-	printf ("source(s): %s\n", $source);
-	printf ("destination: %s\n", $dest);
-
-	printf ("\n(debug) cmd: %s\n", $cmd) if ($self->{"debug"});
+	printf ("using options: %s\n", $self->{"rsync_opts"});
 
 	my $time_start = time ();
-	printf ("\nrsync started: %s\n", scalar (localtime ($time_start)));
+	printf ("\n");
+	printf ("starting @ %s (%d)\n", scalar (localtime ($time_start)), $time_start);
 
-	system ($cmd);
-	my $ret = $?;
+	my $ret = System::exec($cmd);
 
-	if ($ret == -1) {
-		printf ("\nERROR: failed to execute rsync\n");
-		$self->print_errors ();
-		return (0);
-	} elsif ($ret & 127) {
-		printf ("\nERROR: rsync died with signal %d, %s core dump\n", ($? & 127), ($? & 128) ? "with" : "without");
-		$self->print_errors ();
-		return (0);
-	} elsif ($ret) {
-		printf ("\nWARNING: rsync exited with %d\n", $ret);
-		$self->print_errors ();
-		return (0);
+	if ( $ret == -1 ) {
+		die("Rsync::go() unable to execute rsync\n");
+	} elsif ( $ret > 0 ) {
+		printf("Rsync::go() warning: rsync returned %d\n", $ret);
+		$self->errors();
+	} else {
+		$self->report();
 	}
 
 	my $time_stop = time ();
-	printf ("\nrsync ended: %s\n", scalar (localtime ($time_stop)));
-
 	my $time_diff = $time_stop - $time_start;
 
-	if (! $time_diff) {
-		$time_diff++;
+	printf ("\n");
+	printf ("finished @ %s (%d)\n", scalar (localtime ($time_stop)), $time_stop);
+
+	printf ("\n");
+	if ($time_diff) {
+		my $hours = int ($time_diff / 3600);
+		my $mins = int (($time_diff % 3600) / 60);
+		my $secs = int (($time_diff % 3600) % 60);
+		printf ("time elapsed: %.2d:%.2d:%.2d\n", $hours, $mins, $secs);
+	} else {
+		printf ("time elapsed: <1s\n");
+	}
+	printf ("======================================================================\n");
+
+	unlink($self->{"stdout"});
+	unlink($self->{"stderr"});
+
+	$self->{"stdout"} = "";
+	$self->{"stderr"} = "";
+
+	return($ret);
+}
+
+
+sub errors () {
+	my $self = $_[0];
+
+	my $stderr = $self->{"stderr"};
+
+	if ( ! -s $stderr ) {
+		return;
 	}
 
-	my $hours = int ($time_diff / 3600);
-	my $mins = int (($time_diff % 3600) / 60);
-	my $secs = int (($time_diff % 3600) % 60);
+	open (my $fh, "<", $self->{"stderr"}) || die ("Rsync::error() unable to open stderr file '$stderr'\n");
+	my @stderr = <$fh>;
+	close ($fh) || die ("Rsync::error() unable to close stderr file '$stderr'\n");
 
-	printf ("\ntime elapsed: %.2d:%.2d:%.2d\n", $hours, $mins, $secs);
+	chomp (@stderr);
+
+	@stderr = grep ( /^.+$/ , @stderr );
+
+	printf ("---STDERR---\n");
+	map { printf("%s\n", $_) } @stderr;
+	printf ("---STDERR---\n");
+}
 
 
-	my ($fh);
-	open ($fh, "<", $self->{"stdout"});
-	my (@stdout) = <$fh>;
-	close ($fh);
+sub report () {
+	my $self = $_[0];
+
+	my $stdout = $self->{"stdout"};
+
+	open (my $fh, "<", $self->{"stdout"}) || die ("Rsync::report() unable to open stdout file '$stdout'\n");
+	my @stdout = <$fh>;
+	close ($fh) || die ("Rsync::report() unable to close stdout file '$stdout'\n");
 
 	chomp (@stdout);
+
+	@stdout = grep ( /^.+$/ , @stdout );
 
 	shift (@stdout);
 	my ($summ2) = pop (@stdout);
@@ -188,58 +206,25 @@ sub go ($@$) {
 		$deleted[$i] =~ s/^deleted //;
 	}
 
-	printf ("\n%d files copied\n", scalar (grep (/[^\/]$/, @copied)));
-	map { printf ("\t%s\n", $_) } grep (/[^\/]$/, @copied) if $self->{"verbose"};
-
-	printf ("\n%d dirs copied\n", scalar (grep (/\/$/, @copied)));
-	map { printf ("\t%s\n", $_) } grep (/\/$/, @copied) if $self->{"verbose"};
-
-	printf ("\n%d files deleted\n", scalar (grep (/[^\/]$/, @deleted)));
-	map { printf ("\t%s\n", $_) } grep (/[^\/]$/, @deleted) if $self->{"verbose"};
-
-	printf ("\n%d dirs deleted\n", scalar (grep (/\/$/, @deleted)));
-	map { printf ("\t%s\n", $_) } grep (/\/$/, @deleted) if $self->{"verbose"};
-
-	printf ("\n%s\n%s\n", $summ1, $summ2);
-
-
-	return (1);
-}
-
-
-sub print_errors {
-	my $self = $_[0];
-
-	my $stderr = $self->{"stderr"};
-
-	if (! -s $stderr) {
-		return (0);
+	printf ("\n");
+	if ( scalar(@stdout) ) {
+		printf ("%d files copied, ", scalar (grep (/[^\/]$/, @copied)));
+		printf ("%d files deleted\n", scalar (grep (/[^\/]$/, @deleted)));
+		printf ("%d dirs copied, ", scalar (grep (/\/$/, @copied)));
+		printf ("%d dirs deleted\n", scalar (grep (/\/$/, @deleted)));
+	} else {
+		printf ("nothing copied, nothing deleted\n");
 	}
 
-	my ($fh);
+	printf ("\n");
+	printf ("%s\n%s\n", $summ1, $summ2);
 
-	open ($fh, "<", $stderr);
-	my (@stderr) = <$fh>;
-	close ($fh);
-
-	chomp (@stderr);
-
-	printf ("\nrsync stderr follows...\n");
-
-	foreach my $line (@stderr) {
-		printf ("\t%s\n", $line) if ($line =~ /^.+$/);
+	if ( scalar(@stdout) ) {
+		printf ("\n");
+		printf ("---FILE LIST---\n");
+		map { printf("%s\n", $_) } @stdout;
+		printf ("---FILE LIST---\n");
 	}
-}
-
-
-sub cleanup () {
-	my $self = $_[0];
-
-	unlink ($self->{"stdout"});
-	$self->{"stdout"} = "";
-
-	unlink ($self->{"stderr"});
-	$self->{"stderr"} = "";
 }
 
 
