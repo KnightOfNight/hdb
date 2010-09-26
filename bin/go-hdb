@@ -9,6 +9,6 @@ else
 	sub="$host HD Backup - ERROR!!!"
 fi
 
-cat $log | mail -s "$sub" ctg
+cat $log | mail -s "$sub" ctg@magrathea.com
 
 gzip $log
