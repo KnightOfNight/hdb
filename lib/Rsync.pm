@@ -65,14 +65,14 @@ sub new {
 	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
 
 	if (System::exec($cmd)) {
-		die("Rsync::new() unable to run '$cmd'.\n");
+		die("Rsync::new() unable to run '$cmd'\n");
 	}
 
 	$cmd = sprintf("scp -q /tmp/.hdb_time %s/", $self->{"destination"});
 	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
 
 	if (System::exec($cmd)) {
-		die("Rsync::new() unable to run '$cmd'.\n");
+		die("Rsync::new() unable to run '$cmd'\n");
 	}
 
 
@@ -170,7 +170,7 @@ sub errors () {
 
 	open (my $fh, "<", $self->{"stderr"}) || die ("Rsync::error() unable to open stderr file '$stderr'\n");
 	my @stderr = <$fh>;
-	close ($fh) || die ("Rsync::error() unable to close stderr file '$stderr'\n");
+	close ($fh);
 
 	chomp (@stderr);
 
@@ -189,7 +189,7 @@ sub report () {
 
 	open (my $fh, "<", $self->{"stdout"}) || die ("Rsync::report() unable to open stdout file '$stdout'\n");
 	my @stdout = <$fh>;
-	close ($fh) || die ("Rsync::report() unable to close stdout file '$stdout'\n");
+	close ($fh);
 
 	chomp (@stdout);
 

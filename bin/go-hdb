@@ -3,7 +3,7 @@
 host="$(hostname -s)"
 log="/var/log/hdb/$(date +%s)"
 
-if /usr/local/hdb/bin/hdb > $log; then
+if /usr/local/hdb/bin/hdb 2>&1 > $log; then
 	gzip $log
 else
 	cat $log | mail -s "$host HD Backup - ERROR" ctg

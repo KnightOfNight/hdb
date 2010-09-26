@@ -51,7 +51,7 @@ my @config;
 
 if ( open( my $fh, "<", $cfg_file ) ) {
 	@config = <$fh>;
-	close($fh) || die("Unable to close config file '$cfg_file'\n");
+	close($fh);
 } else {
 	die("Unable to open config file '$cfg_file'\n");
 }
