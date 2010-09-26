@@ -7,6 +7,51 @@ use lib "/usr/local/hdb/lib";
 use strict;
 use warnings;
 use Rsync;
+use JSON;
+use Env qw(HOME);
+
+
+my $cfg_file = "";
+my $help = 0;
+
+my $getopt = GetOptions( "cfg=s" => \$cfg_file, "help" => \$help );
+
+if ( ! $getopt ) {
+	die("Unable to parse command line options\n");
+}
+
+
+if ( $help ) {
+	print <<EOHELP;
+
+hdb [--cfg=<configuration file>]
+
+--cfg=<config file>    Specify a config file.  Default is '~/.hdbrc'.
+
+EOHELP
+}
+
+
+if ( ! $cfg_file ) {
+	$cfg_file = $HOME . "/.hdbrc";
+}
+
+if ( ! -s $cfg_file ) {
+	die ("Config file '$cfg_file' empty or missing\n");
+}
+
+
+unless( open($fh, "<", $cfg_file) ) die("Unable to open config file '$cfg_file'\n");
+my @config = <$fh>;
+close ($fh);
+$config = JSON::decode_json( join("", @config) );
+
+
+@jobs = $config->{"jobs"};
+
+exit;
+
+
 
 
 my $backup = new Rsync ( { "destdir" => "/mnt/backups", "desthost" => "zaphod", "logfile" => "logs/Eddie" } );
