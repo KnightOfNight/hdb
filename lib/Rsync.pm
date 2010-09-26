@@ -45,12 +45,6 @@ sub new {
 		$self->{"test"} = 0;
 	}
 
-	if ($options->{"verbose"}) {
-		$self->{"verbose"} = 1;
-	} else {
-		$self->{"verbose"} = 0;
-	}
-
 	if ($options->{"debug"}) {
 		$self->{"debug"} = 1;
 	} else {
@@ -74,6 +68,8 @@ sub new {
 	if (System::exec($cmd)) {
 		die("Rsync::new() unable to run '$cmd'\n");
 	}
+
+	printf ("Successfully tagged destination directory.  It is writable and can be used.\n");
 
 
 	bless($self, $class);

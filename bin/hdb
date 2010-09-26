@@ -14,11 +14,10 @@ use Env qw(HOME);
 
 my $cfg_file = "";
 my $test = 0;
-my $verbose = 0;
 my $debug = 0;
 my $help = 0;
 
-my $getopt = GetOptions( "cfg=s" => \$cfg_file, "test" => \$test, "verbose" => \$verbose, "debug" => \$debug, "help" => \$help );
+my $getopt = GetOptions( "cfg=s" => \$cfg_file, "test" => \$test, "debug" => \$debug, "help" => \$help );
 
 if ( ! $getopt ) {
 	die("Unable to parse command line options\n");
@@ -71,7 +70,9 @@ foreach my $job (@jobs) {
 	my $destination = $job->{"destination"};
 	my $rsync_opts = $job->{"rsync options"};
 
-	my $rsync = new Rsync( { "destination" => $destination , "rsync_opts" => $rsync_opts , "verbose" => $verbose, "debug" => $debug , "test" => $test } );
+	my $rsync = new Rsync( { "destination" => $destination , "rsync_opts" => $rsync_opts , "debug" => $debug , "test" => $test } );
+
+	printf ("\n\n");
 
 	map { 
 		if ( $rsync->go($_) ) {
