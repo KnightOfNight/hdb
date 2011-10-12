@@ -121,7 +121,7 @@ sub go ($$) {
 
 	if ( $ret == -1 ) {
 		die("Rsync::go() unable to execute rsync\n");
-	} elsif ( $ret > 0 ) {
+	} elsif ( ( $ret > 0 ) && ( $ret != 24 ) ) {
 		printf("Rsync::go() warning: rsync returned %d\n", $ret);
 		$self->errors();
 	} else {

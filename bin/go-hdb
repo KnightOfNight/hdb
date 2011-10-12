@@ -4,11 +4,14 @@ host="$(hostname -s)"
 log="/var/log/hdb/$(date +%s)"
 
 if /usr/local/hdb/bin/hdb > $log 2>&1; then
-	sub="$host HD Backup - OK"
+#	sub="$host HD Backup - OK"
+	:
+
 else
 	sub="$host HD Backup - ERROR!!!"
-fi
+	cat $log | mail -s "$sub" ctg@magrathea.com,ras@magrathea.com
+	:
 
-cat $log | mail -s "$sub" ctg@magrathea.com
+fi
 
 gzip $log
