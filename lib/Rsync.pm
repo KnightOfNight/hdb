@@ -119,13 +119,22 @@ sub go ($$) {
 
 	my $ret = System::exec($cmd);
 
+#	if ( $ret == -1 ) {
+#		die("Rsync::go() unable to execute rsync\n");
+#	} elsif ( ( $ret > 0 ) && ( $ret != 24 ) ) {
+#		printf("Rsync::go() warning: rsync returned %d\n", $ret);
+#		$self->errors();
+#	} else {
+#		$self->report();
+#	}
+
 	if ( $ret == -1 ) {
 		die("Rsync::go() unable to execute rsync\n");
-	} elsif ( ( $ret > 0 ) && ( $ret != 24 ) ) {
-		printf("Rsync::go() warning: rsync returned %d\n", $ret);
-		$self->errors();
-	} else {
+	} elsif ( ( $ret == 0 ) || ( $ret == 24 ) ) {
+		$ret = 0;
 		$self->report();
+	} else {
+		$self->errors();
 	}
 
 	my $time_stop = time ();
