@@ -3,6 +3,8 @@
 		{
 			"rsync options" : "" ,
 
+			"scp options" : "" ,
+
 			"sources" : ["/bin","/boot","/dev","/etc","/home","/lib","/root","/sbin","/selinux","/tmp","/usr","/var"] ,
 
 			"destination" : "root@max:/Volumes/Backups/Slarti"

@@ -71,8 +71,9 @@ foreach my $job (@jobs) {
 	my @sources = @{$job->{"sources"}};
 	my $destination = $job->{"destination"};
 	my $rsync_opts = $job->{"rsync options"};
+	my $scp_opts = $job->{"scp options"};
 
-	my $rsync = new Rsync( { "destination" => $destination , "rsync_opts" => $rsync_opts , "debug" => $debug , "test" => $test } );
+	my $rsync = new Rsync( { "destination" => $destination , "rsync_opts" => $rsync_opts , "scp_opts" => $scp_opts, "debug" => $debug , "test" => $test } );
 
 	printf ("\n\n");
 

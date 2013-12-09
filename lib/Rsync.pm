@@ -7,6 +7,7 @@ use strict;
 use warnings;
 use System;
 use File::Temp;
+use File::Basename;
 
 
 package Rsync;
@@ -30,6 +31,12 @@ sub new {
 		$self->{"rsync_opts"} .= " --verbose";
 	} else {
 		$self->{"rsync_opts"} = "-av --numeric-ids --delete-after";
+	}
+
+	if ( $options->{"scp_opts"} ) {
+		$self->{"scp_opts"} = $options->{"scp_opts"};
+	} else {
+		$self->{"scp_opts"} = "";
 	}
 
 	if ( $options->{"destination"} ) {
@@ -62,7 +69,7 @@ sub new {
 		die("Rsync::new() unable to run '$cmd'\n");
 	}
 
-	$cmd = sprintf("scp -q /tmp/.hdb_time %s/", $self->{"destination"});
+	$cmd = sprintf("scp %s -q /tmp/.hdb_time %s/", $self->{"scp_opts"}, $self->{"destination"});
 	printf ("DEBUG: cmd = '%s'\n", $cmd) if $self->{"debug"};
 
 	if (System::exec($cmd)) {
@@ -85,6 +92,14 @@ sub go ($$) {
 
 
 	my $destination = $self->{"destination"};
+
+
+    my $dirname = File::Basename::dirname($source);
+
+
+    if ($dirname ne "/") {
+        $destination .= $dirname;
+    }
 
 
 	if ($source =~ / /) {
